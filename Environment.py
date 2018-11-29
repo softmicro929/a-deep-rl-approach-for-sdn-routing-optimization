@@ -298,6 +298,7 @@ class OmnetLinkweightEnv():
 
         self.ACTUM = DDPG_config['ACTUM']
 
+        # 利用 networkX 创建 网络拓扑图 graph
         topology = 'omnet/router/NetworkAll.matrix'
         self.graph = nx.Graph(np.loadtxt(topology, dtype=int))
         if self.ACTIVE_NODES != self.graph.number_of_nodes():
@@ -305,10 +306,12 @@ class OmnetLinkweightEnv():
         ports = 'omnet/router/NetworkAll.ports'
         self.ports = np.loadtxt(ports, dtype=int)
 
+        # actions 是所有的 edges
         self.a_dim = self.graph.number_of_edges()
-
+        # state 维度 n*(n-1) n是节点个数，很显然，任意两点之前组队，一共有n*(n-1) = n^2-n
         self.s_dim = self.ACTIVE_NODES**2 - self.ACTIVE_NODES    # traffic minus diagonal
 
+        # ？？？
         self.STATUM = DDPG_config['STATUM']
         if self.STATUM == 'RT':
             self.s_dim *= 2    # traffic + routing table minus diagonals
@@ -317,6 +320,7 @@ class OmnetLinkweightEnv():
 
         capacity = self.ACTIVE_NODES * (self.ACTIVE_NODES -1)
 
+        # ？？？ traffic
         self.TRAFFIC = DDPG_config['TRAFFIC']
         self.tgen = Traffic(self.ACTIVE_NODES, self.TRAFFIC, capacity)
 

@@ -15,6 +15,7 @@ class ReplayBuffer(object):
         self.num_experiences = 0
         self.buffer = deque()
 
+    # 随机采样，抽取 (<=batch_size) 个 sample
     def getBatch(self, batch_size):
         # Randomly sample batch_size examples
         if self.num_experiences < batch_size:
