@@ -150,6 +150,9 @@ def softmax(x):
     return np.exp(x) / np.sum(np.exp(x), axis=0)
 
 
+# https://zhuanlan.zhihu.com/p/27362891
+# https://blog.csdn.net/mmc2015/article/details/78087145
+# selu 介绍
 def selu(x):
     from keras.activations import elu
     """Scaled Exponential Linear Unit. (Klambauer et al., 2017)

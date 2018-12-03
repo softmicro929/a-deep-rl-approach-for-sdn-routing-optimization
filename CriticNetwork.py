@@ -52,6 +52,9 @@ class CriticNetwork(object):
             critic_target_weights[i] = self.TAU * critic_weights[i] + (1 - self.TAU)* critic_target_weights[i]
         self.target_model.set_weights(critic_target_weights)
 
+    # 创建网络, critic 网络
+    # 细节不说了，注意网络输出,在回归问题中，可以什么激活函数都不用，只用 linear function
+    # 输入<state, action>, 输出 < q >, 然后计算梯度 d_q/d_a
     def create_critic_network(self, state_size, action_dim):
         S = Input(shape=[state_size], name='c_S')
         A = Input(shape=[action_dim], name='c_A')
@@ -60,6 +63,7 @@ class CriticNetwork(object):
         h1 = Dense(self.HIDDEN2_UNITS, activation='linear', init=glorot_normal, name='c_h1')(w1)
         h2 = merge([h1, a1], mode='sum', name='c_h2')
         h3 = Dense(self.HIDDEN2_UNITS, activation=self.h_acti, init=glorot_normal, name='c_h3')(h2)
+        # 注意这里网络输出, activation='linear' 线性激活函数（即不做任何改变）
         V = Dense(action_dim, activation='linear', init=glorot_normal, name='c_V')(h3)
         model = Model(input=[S, A], output=V)
         adam = Adam(lr=self.LEARNING_RATE)

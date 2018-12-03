@@ -53,6 +53,8 @@ def playGame(DDPG_config, train_indicator=1):    #1 means Train, 0 means simply 
     EXPLORE = DDPG_config['EXPLORE']
     EPISODE_COUNT = DDPG_config['EPISODE_COUNT']
     MAX_STEPS = DDPG_config['MAX_STEPS']
+    # explore 是 0.8
+    # explore 计算出 最多实际会explore多少step  ： EXPLORE = EPISODE_COUNT * MAX_STEPS * EXPLORE
     if EXPLORE <= 1:
         EXPLORE = EPISODE_COUNT * MAX_STEPS * EXPLORE
     # SETUP ENDS HERE
@@ -105,26 +107,37 @@ def playGame(DDPG_config, train_indicator=1):    #1 means Train, 0 means simply 
 
         total_reward = 0
         for j in range(MAX_STEPS):
+            # 这个怎么用？？？
             epsilon -= 1.0 / EXPLORE
             a_t = np.zeros([1, action_dim])
+            # noise_t = [1, action_dim] 全 0
             noise_t = np.zeros([1, action_dim])
 
+            # 输入 状态， 拉成一维， 输出是 [1,action_dim]
             a_t_original = actor.model.predict(s_t.reshape(1, s_t.shape[0]))
 
+            # 这里会更新noise_t，大概是下面这样的。。
+            # -0.019	-0.037	0.003	-0.004	-0.026	0.049	0.012	-0.001	-0.016	0.024	0.08	-0.022	-0.027	-0.009	0.054	0.026	-0.15	-0.019	-0.034	-0.019	-0.037
             if train_indicator and epsilon > 0 and (step % 1000) // 100 != 9:
                 noise_t[0] = epsilon * ou.evolve()
 
             a = a_t_original[0]
             n = noise_t[0]
+            # 满足条件(condition)，输出x，不满足输出y。
+            # 把 0<a+n<1 的位置置 a+n ,别的置a-n,然后再 clip 一下
             a_t[0] = np.where((a + n > 0) & (a + n < 1), a + n, a - n).clip(min=0, max=1)
 
             # execute action
+            # 这里 done 一直返回的都是 0 ？？？
             s_t1, r_t, done = env.step(a_t[0])
 
+            # s_t, a_t, r_t, s_t1
+            # 状态S， S下执行A， 获得的R， 进入状态S1
             buff.add(s_t, a_t[0], r_t, s_t1, done)      #Add replay buffer
 
             scale = lambda x: x
             #Do the batch update
+            # 取得一组，每个是 experience = (state, action, reward, new_state, done)
             batch = buff.getBatch(BATCH_SIZE)
             states = scale(np.asarray([e[0] for e in batch]))
             actions = scale(np.asarray([e[1] for e in batch]))
@@ -133,6 +146,7 @@ def playGame(DDPG_config, train_indicator=1):    #1 means Train, 0 means simply 
             dones = np.asarray([e[4] for e in batch])
 
             y_t = np.zeros([len(batch), action_dim])
+            # 输入 <state, action>, 输出 q
             target_q_values = critic.target_model.predict([new_states, actor.target_model.predict(new_states)])
 
             for k in range(len(batch)):
@@ -142,6 +156,7 @@ def playGame(DDPG_config, train_indicator=1):    #1 means Train, 0 means simply 
                     y_t[k] = rewards[k] + GAMMA*target_q_values[k]
 
             if train_indicator and len(batch) >= BATCH_SIZE:
+                # 获取 grad， 给 actor 训练
                 loss = critic.model.train_on_batch([states, actions], y_t)
                 a_for_grad = actor.model.predict(states)
                 grads = critic.gradients(states, a_for_grad)
@@ -166,7 +181,9 @@ def playGame(DDPG_config, train_indicator=1):    #1 means Train, 0 means simply 
             if train_indicator and len(batch) >= BATCH_SIZE:
                 vector_to_file([L2[x] for x in ltm], folder + 'weightsL2' + 'Log.csv', 'a')
 
+            # 把 action 写进log，这里action用的linear的激活，然后step的时候，才softmax
             vector_to_file(a_t_original[0], folder + 'actionLog.csv', 'a')
+            # 把noise_t 写进 log,
             vector_to_file(noise_t[0], folder + 'noiseLog.csv', 'a')
 
             if 'PRINT' in DDPG_config.keys() and DDPG_config['PRINT']:
@@ -184,6 +201,7 @@ def playGame(DDPG_config, train_indicator=1):    #1 means Train, 0 means simply 
             if done or wise:
                 break
 
+        # 每隔2 episode 保存一次模型
         if np.mod((i+1), 2) == 0:   # writes at every 2nd episode
             if (train_indicator):
                 actor.model.save_weights(folder + "actormodel.h5", overwrite=True)
